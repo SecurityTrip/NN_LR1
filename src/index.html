@@ -9,31 +9,60 @@
   </head>
 
   <body>
-    <main class="container">
-      <h1>Welcome to Tauri</h1>
-
-      <div class="row">
-        <a href="https://tauri.app" target="_blank">
-          <img src="/assets/tauri.svg" class="logo tauri" alt="Tauri logo" />
-        </a>
-        <a
-          href="https://developer.mozilla.org/en-US/docs/Web/JavaScript"
-          target="_blank"
-        >
-          <img
-            src="/assets/javascript.svg"
-            class="logo vanilla"
-            alt="JavaScript logo"
-          />
-        </a>
+    <canvas id="drawingArea" width="400" height="400"></canvas>
+  
+    <div class="buttons">
+      <button class="recognize" id="recognize">Распознать</button>
+      <button class="clear" id="clear">Очистить</button>
+    </div>
+  
+    <div class="output">
+      <div class="output-item">
+        <span class="digit">0</span>
+        <progress value="0" max="100"></progress>
       </div>
-      <p>Click on the Tauri logo to learn more about the framework</p>
+      <div class="output-item">
+        <span class="digit">1</span>
+        <progress value="0" max="100"></progress>
+      </div>
+      <div class="output-item">
+        <span class="digit">2</span>
+        <progress value="0" max="100"></progress>
+      </div>
+      <div class="output-item">
+        <span class="digit">3</span>
+        <progress value="0" max="100"></progress>
+      </div>
+      <div class="output-item">
+        <span class="digit">4</span>
+        <progress value="0" max="100"></progress>
+      </div>
+      <div class="output-item">
+        <span class="digit">5</span>
+        <progress value="0" max="100"></progress>
+      </div>
+      <div class="output-item">
+        <span class="digit">6</span>
+        <progress value="0" max="100"></progress>
+      </div>
+      <div class="output-item">
+        <span class="digit">7</span>
+        <progress value="0" max="100"></progress>
+      </div>
+      <div class="output-item">
+        <span class="digit">8</span>
+        <progress value="0" max="100"></progress>
+      </div>
+      <div class="output-item">
+        <span class="digit">9</span>
+        <progress value="0" max="100"></progress>
+      </div>
+    </div>
+    <!-- Блок для вывода результата -->
+    <div id="result">
 
-      <form class="row" id="greet-form">
-        <input id="greet-input" placeholder="Enter a name..." />
-        <button type="submit">Greet</button>
-      </form>
-      <p id="greet-msg"></p>
-    </main>
+    </div>
+    
+    <script type="module" src="script.js"></script>
   </body>
 </html>
