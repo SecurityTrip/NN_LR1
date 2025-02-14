@@ -3,93 +3,93 @@
     windows_subsystem = "windows"
 )]
 
-// Подключаем только Tauri (сторонних библиотек для нейросети или обработки изображений не используем)
+// Подключаем необходимые модули и библиотеки
+use std::sync::Mutex;
 use tauri::Manager;
 
+mod perceptron;
+mod training;
+
+use perceptron::{Neuron, Perceptron};
+use training::{load_dataset, train_perceptron};
+
+/// Глобальное состояние приложения.
+/// Модель хранится в Mutex, чтобы обеспечить безопасный доступ из разных команд.
+struct AppState {
+    model: Mutex<Perceptron>,
+}
+
+/// Инициализация персептрона с 10 нейронами, каждый с 784 входами.
+/// Начальные веса и смещения выставлены в 0.0.
+fn init_model() -> Perceptron {
+    let mut neurons = Vec::new();
+    for _ in 0..10 {
+        neurons.push(Neuron::new(vec![0.0; 28 * 28], 0.0));
+    }
+    Perceptron::new(neurons)
+}
+
+/// Tauri-команда для распознавания цифры по входному вектору (784 значения).
+/// Использует модель из глобального состояния.
 #[tauri::command]
-fn recognize_digit(pixelData: Vec<f32>) -> Result<String, String> {
-    // Ожидаем, что входной вектор имеет длину 28x28 = 784
+fn recognize_digit(pixelData: Vec<f32>, state: tauri::State<AppState>) -> Result<String, String> {
     if pixelData.len() != 28 * 28 {
         return Err(format!(
-            "Неверная длина входных данных: ожидалось 784, получено {}",
+            "Неверное количество пикселей: {} (ожидалось 784)",
             pixelData.len()
         ));
     }
-
-    // Выполняем прямой проход по нейросети
-    let prediction = forward(&pixelData);
+    let model = state.model.lock().unwrap();
+    let prediction = model.predict(&pixelData);
     Ok(prediction.to_string())
 }
 
-/// Функция, выполняющая прямой проход по сети
-fn forward(input: &[f32]) -> usize {
-    // Скрытый слой: 128 нейронов
-    let w1 = get_w1();
-    let b1 = get_b1();
-    let hidden = linear_layer(&w1, &b1, 128, 28 * 28, input);
-    // Функция активации ReLU
-    let hidden_relu: Vec<f32> = hidden.into_iter().map(|x| if x < 0.0 { 0.0 } else { x }).collect();
+/// Tauri-команда для обучения модели.
+/// Параметры:
+/// - dataset_path: путь к CSV‑файлу с датасетом (например, "mnist_train.csv")
+/// - epochs: число эпох обучения
+/// - lr: скорость обучения
+/// После обучения обновляет модель в глобальном состоянии.
+#[tauri::command]
+fn train_model(
+    dataset_path: String,
+    epochs: usize,
+    lr: f32,
+    state: tauri::State<AppState>,
+) -> Result<String, String> {
+    let dataset = load_dataset(&dataset_path)?;
+    println!("Загружено примеров: {}", dataset.len());
 
-    // Выходной слой: 10 нейронов
-    let w2 = get_w2();
-    let b2 = get_b2();
-    let output = linear_layer(&w2, &b2, 10, 128, &hidden_relu);
+    // Блокируем состояние и получаем изменяемую ссылку на модель
+    let mut model = state.model.lock().unwrap();
 
-    // Возвращаем индекс максимального значения – это и будет распознанная цифра
-    argmax(&output)
-}
+    // Обучаем модель
+    train_perceptron(&mut model, &dataset, epochs, lr);
 
-/// Реализует линейный слой: y = W*x + b  
-/// - weights имеет размер out_size x in_size  
-/// - bias имеет длину out_size  
-fn linear_layer(weights: &[f32], bias: &[f32], out_size: usize, in_size: usize, input: &[f32]) -> Vec<f32> {
-    let mut output = vec![0.0; out_size];
-    for i in 0..out_size {
-        let mut sum = bias[i];
-        for j in 0..in_size {
-            sum += weights[i * in_size + j] * input[j];
-        }
-        output[i] = sum;
-    }
-    output
-}
-
-/// Возвращает индекс максимального элемента в векторе
-fn argmax(vec: &[f32]) -> usize {
-    let mut max_index = 0;
-    let mut max_value = vec[0];
-    for (i, &value) in vec.iter().enumerate().skip(1) {
-        if value > max_value {
-            max_value = value;
-            max_index = i;
+    // Оценка точности на обучающем наборе
+    let mut correct = 0;
+    for (input, label) in dataset.iter() {
+        let prediction = model.predict(input);
+        if prediction == *label {
+            correct += 1;
         }
     }
-    max_index
-}
-
-/// Для демонстрации задаём фиксированные веса и смещения.
-/// В реальном приложении здесь должны быть обученные параметры.
-fn get_w1() -> Vec<f32> {
-    // Размер: 128 x (28*28) = 128 x 784
-    vec![0.001; 128 * 28 * 28]
-}
-
-fn get_b1() -> Vec<f32> {
-    vec![0.0; 128]
-}
-
-fn get_w2() -> Vec<f32> {
-    // Размер: 10 x 128
-    vec![0.001; 10 * 128]
-}
-
-fn get_b2() -> Vec<f32> {
-    vec![0.0; 10]
+    let accuracy = correct as f32 / dataset.len() as f32;
+    Ok(format!(
+        "Обучение завершено. Точность на обучающем наборе: {:.2}%",
+        accuracy * 100.0
+    ))
 }
 
 fn main() {
+    // Инициализируем модель и передаём её в глобальное состояние
+    let state = AppState {
+        model: Mutex::new(init_model()),
+    };
+
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![recognize_digit])
+        .manage(state)
+        .invoke_handler(tauri::generate_handler![recognize_digit, train_model])
         .run(tauri::generate_context!())
         .expect("Ошибка при запуске приложения");
 }

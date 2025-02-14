@@ -62,6 +62,22 @@
     <div id="result">
 
     </div>
+
+     <!-- Интерфейс для обучения модели -->
+     <h2>Обучение модели</h2>
+     <form id="train-form">
+       <label for="dataset-path">Путь к датасету (CSV):</label>
+       <input type="text" id="dataset-path" placeholder="mnist_train.csv" required />
+       <br />
+       <label for="epochs">Эпох:</label>
+       <input type="number" id="epochs" value="5" min="1" required />
+       <br />
+       <label for="lr">Скорость обучения (lr):</label>
+       <input type="number" id="lr" value="0.1" step="0.01" min="0.001" required />
+       <br />
+       <button type="submit">Обучить модель</button>
+     </form>
+     <div id="train-result"></div>
     
     <script type="module" src="script.js"></script>
   </body>
